@@ -9,6 +9,8 @@ import {
   MapPin,
   Clock,
   Ticket,
+  AlertCircle,
+  Key,
 } from "lucide-react";
 
 const BusChatbot = () => {
@@ -16,6 +18,8 @@ const BusChatbot = () => {
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [showAuthHelper, setShowAuthHelper] = useState(false);
+  const [tempToken, setTempToken] = useState("");
   const messagesEndRef = useRef(null);
   const chatContainerRef = useRef(null);
 
@@ -70,8 +74,15 @@ const BusChatbot = () => {
     setIsTyping(true);
 
     try {
-      // Get JWT token from localStorage (you should set this after login)
-      const token = localStorage.getItem("jwt_token") || "YOUR_JWT_TOKEN_HERE";
+      // Get JWT token from localStorage
+      const token =
+        localStorage.getItem("jwt_token") ||
+        localStorage.getItem("access_token") ||
+        localStorage.getItem("token");
+
+      if (!token || token === "YOUR_JWT_TOKEN_HERE") {
+        throw new Error("AUTH_REQUIRED");
+      }
 
       const response = await fetch(
         "https://backend.shaslolav.space/api/chat-gemini/",
@@ -84,6 +95,10 @@ const BusChatbot = () => {
           body: JSON.stringify({ message: messageText }),
         },
       );
+
+      if (response.status === 401) {
+        throw new Error("AUTH_FAILED");
+      }
 
       if (!response.ok) {
         throw new Error(`API Error: ${response.status}`);
@@ -106,10 +121,23 @@ const BusChatbot = () => {
       console.error("Error sending message:", error);
       setIsTyping(false);
 
+      let errorText =
+        "I'm sorry, I couldn't process your request. Please check your connection and try again.";
+
+      if (error.message === "AUTH_REQUIRED") {
+        errorText =
+          "⚠️ Authentication required. Please log in to use the chatbot. Your JWT token should be stored in localStorage as 'jwt_token', 'access_token', or 'token'.";
+        setShowAuthHelper(true);
+      } else if (error.message === "AUTH_FAILED") {
+        errorText =
+          "🔒 Authentication failed. Your session may have expired. Please log in again to continue.";
+        setShowAuthHelper(true);
+      }
+
       // Add error message
       const errorMessage = {
         id: Date.now() + 1,
-        text: "I'm sorry, I couldn't process your request. Please check your connection and try again.",
+        text: errorText,
         sender: "bot",
         timestamp: new Date().toISOString(),
         isError: true,
@@ -162,6 +190,58 @@ const BusChatbot = () => {
 
       {/* Chat Container */}
       <div className="flex-1 overflow-hidden flex flex-col max-w-4xl w-full mx-auto">
+        {/* Auth Helper Bar */}
+        {showAuthHelper && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-yellow-50 border-b border-yellow-200 px-4 py-3"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <AlertCircle className="w-4 h-4 text-yellow-600" />
+              <p className="text-sm text-yellow-800">
+                JWT Token Required - For testing, you can paste your token here:
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={tempToken}
+                onChange={(e) => setTempToken(e.target.value)}
+                placeholder="Paste your JWT token..."
+                className="flex-1 px-3 py-1.5 text-sm border border-yellow-300 rounded-lg focus:outline-none focus:border-yellow-400"
+              />
+              <button
+                onClick={() => {
+                  if (tempToken.trim()) {
+                    localStorage.setItem("jwt_token", tempToken.trim());
+                    setShowAuthHelper(false);
+                    setTempToken("");
+                    // Add success message
+                    const successMessage = {
+                      id: Date.now(),
+                      text: "✅ Authentication token saved! You can now use the chatbot.",
+                      sender: "bot",
+                      timestamp: new Date().toISOString(),
+                    };
+                    setMessages((prev) => [...prev, successMessage]);
+                  }
+                }}
+                className="px-4 py-1.5 bg-yellow-600 text-white text-sm rounded-lg hover:bg-yellow-700 transition-colors"
+              >
+                Save Token
+              </button>
+              <button
+                onClick={() => setShowAuthHelper(false)}
+                className="px-3 py-1.5 text-yellow-600 hover:text-yellow-700"
+              >
+                ✕
+              </button>
+            </div>
+          </motion.div>
+        )}
+
         <div
           ref={chatContainerRef}
           className="flex-1 overflow-y-auto px-4 py-4 md:px-6 space-y-4"
