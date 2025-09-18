@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { Eye, EyeOff, Bus, ArrowRight, MapPin, Route } from "lucide-react";
 
-const Login = ({ onSwitchToRegister }) => {
+const Login = ({ onSwitchToRegister, onLoginSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -13,11 +15,80 @@ const Login = ({ onSwitchToRegister }) => {
       ...formData,
       [e.target.name]: e.target.value,
     });
+    // Clear error when user starts typing
+    if (error) setError("");
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Login attempt:", formData);
+
+    // Basic validation
+    if (!formData.email || !formData.password) {
+      setError("Please fill in all fields");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(
+        "https://backend.shaslolav.space/api/auth/login/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Store tokens in localStorage
+        localStorage.setItem("access_token", data.access);
+        localStorage.setItem("refresh_token", data.refresh);
+
+        // Fetch user profile to get user details
+        const profileResponse = await fetch(
+          "https://backend.shaslolav.space/api/auth/profile/",
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${data.access}`,
+            },
+          },
+        );
+
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json();
+          localStorage.setItem("user", JSON.stringify(profileData));
+        }
+
+        console.log("Login successful:", data);
+
+        // Call success callback if provided
+        if (onLoginSuccess) {
+          onLoginSuccess(data);
+        }
+      } else {
+        // Handle error responses
+        if (response.status === 401) {
+          setError("Invalid email or password");
+        } else {
+          setError(data.message || "Login failed. Please try again.");
+        }
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -50,7 +121,14 @@ const Login = ({ onSwitchToRegister }) => {
         {/* Main Content */}
         <div className="flex-1 px-6">
           <div className="bg-white rounded-3xl shadow-xl p-6 mx-auto max-w-sm">
-            <div className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">
+                  {error}
+                </div>
+              )}
+
               {/* Email Input */}
               <div className="space-y-2">
                 <label className="text-gray-700 font-medium text-sm pl-1">
@@ -63,6 +141,7 @@ const Login = ({ onSwitchToRegister }) => {
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-gray-800 placeholder-gray-400"
                   placeholder="your@email.com"
+                  disabled={loading}
                 />
               </div>
 
@@ -79,11 +158,13 @@ const Login = ({ onSwitchToRegister }) => {
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-gray-800 placeholder-gray-400 pr-12"
                     placeholder="••••••••"
+                    disabled={loading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    disabled={loading}
                   >
                     {showPassword ? (
                       <EyeOff className="w-5 h-5" />
@@ -96,18 +177,50 @@ const Login = ({ onSwitchToRegister }) => {
 
               {/* Forgot Password */}
               <div className="flex justify-end">
-                <button className="text-blue-600 font-medium text-sm hover:text-blue-700 transition-colors">
+                <button
+                  type="button"
+                  className="text-blue-600 font-medium text-sm hover:text-blue-700 transition-colors"
+                >
                   Forgot Password?
                 </button>
               </div>
 
               {/* Login Button */}
               <button
-                onClick={handleSubmit}
-                className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95 flex items-center justify-center space-x-2"
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span>Sign In</span>
-                <ArrowRight className="w-4 h-4" />
+                {loading ? (
+                  <>
+                    <svg
+                      className="animate-spin h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    <span>Signing In...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Sign In</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
 
               {/* Divider */}
@@ -124,7 +237,10 @@ const Login = ({ onSwitchToRegister }) => {
 
               {/* Social Login */}
               <div className="grid grid-cols-2 gap-3">
-                <button className="flex items-center justify-center py-2.5 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors active:scale-95">
+                <button
+                  type="button"
+                  className="flex items-center justify-center py-2.5 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors active:scale-95"
+                >
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
                     <path
                       fill="#4285F4"
@@ -145,13 +261,16 @@ const Login = ({ onSwitchToRegister }) => {
                   </svg>
                 </button>
 
-                <button className="flex items-center justify-center py-2.5 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors active:scale-95">
+                <button
+                  type="button"
+                  className="flex items-center justify-center py-2.5 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors active:scale-95"
+                >
                   <svg className="w-5 h-5" fill="#1877F2" viewBox="0 0 24 24">
                     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                   </svg>
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
 

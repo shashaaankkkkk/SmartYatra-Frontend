@@ -11,9 +11,11 @@ import {
   Route,
 } from "lucide-react";
 
-const Register = ({ onSwitchToLogin }) => {
+const Register = ({ onSwitchToLogin, onRegisterSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -27,11 +29,135 @@ const Register = ({ onSwitchToLogin }) => {
       ...formData,
       [e.target.name]: e.target.value,
     });
+    // Clear error when user starts typing
+    if (error) setError("");
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Registration attempt:", formData);
+
+    // Basic validation
+    if (
+      !formData.fullName ||
+      !formData.email ||
+      !formData.phone ||
+      !formData.password ||
+      !formData.confirmPassword
+    ) {
+      setError("Please fill in all fields");
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords don't match");
+      return;
+    }
+
+    // Validate phone number (should be 10 digits)
+    const phoneRegex = /^\d{10}$/;
+    if (!phoneRegex.test(formData.phone.replace(/\D/g, ""))) {
+      setError("Please enter a valid 10-digit phone number");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      // Split full name into first and last name
+      const nameParts = formData.fullName.trim().split(" ");
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+
+      const response = await fetch(
+        "https://backend.shaslolav.space/api/auth/register/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            first_name: firstName,
+            last_name: lastName,
+            phone_number: formData.phone.replace(/\D/g, ""), // Remove non-digits
+            password: formData.password,
+            password_confirm: formData.confirmPassword,
+            role: "customer", // Default role
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log("Registration successful:", data);
+
+        // Auto-login after successful registration
+        const loginResponse = await fetch(
+          "https://backend.shaslolav.space/api/auth/login/",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              email: formData.email,
+              password: formData.password,
+            }),
+          },
+        );
+
+        if (loginResponse.ok) {
+          const loginData = await loginResponse.json();
+          localStorage.setItem("access_token", loginData.access);
+          localStorage.setItem("refresh_token", loginData.refresh);
+          localStorage.setItem("user", JSON.stringify(data));
+
+          if (onRegisterSuccess) {
+            onRegisterSuccess(loginData);
+          }
+        } else {
+          // Registration successful but auto-login failed
+          // Redirect to login page
+          if (onSwitchToLogin) {
+            alert(
+              "Registration successful! Please login with your credentials.",
+            );
+            onSwitchToLogin();
+          }
+        }
+      } else {
+        // Handle error responses
+        if (response.status === 400) {
+          // Check for specific field errors
+          if (data.email) {
+            setError(Array.isArray(data.email) ? data.email[0] : data.email);
+          } else if (data.phone_number) {
+            setError(
+              Array.isArray(data.phone_number)
+                ? data.phone_number[0]
+                : data.phone_number,
+            );
+          } else if (data.password) {
+            setError(
+              Array.isArray(data.password) ? data.password[0] : data.password,
+            );
+          } else {
+            setError("Invalid input. Please check your details.");
+          }
+        } else if (response.status === 409) {
+          setError("Email or phone number already exists");
+        } else {
+          setError(data.message || "Registration failed. Please try again.");
+        }
+      }
+    } catch (err) {
+      console.error("Registration error:", err);
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -64,7 +190,14 @@ const Register = ({ onSwitchToLogin }) => {
         {/* Main Content */}
         <div className="flex-1 px-6">
           <div className="bg-white rounded-3xl shadow-xl p-6 mx-auto max-w-sm">
-            <div className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm">
+                  {error}
+                </div>
+              )}
+
               {/* Full Name Input */}
               <div className="space-y-2">
                 <label className="text-gray-700 font-medium text-sm pl-1">
@@ -79,6 +212,7 @@ const Register = ({ onSwitchToLogin }) => {
                     onChange={handleInputChange}
                     className="w-full pl-10 pr-4 py-3 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-gray-800 placeholder-gray-400"
                     placeholder="John Doe"
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -97,6 +231,7 @@ const Register = ({ onSwitchToLogin }) => {
                     onChange={handleInputChange}
                     className="w-full pl-10 pr-4 py-3 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-gray-800 placeholder-gray-400"
                     placeholder="your@email.com"
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -114,7 +249,9 @@ const Register = ({ onSwitchToLogin }) => {
                     value={formData.phone}
                     onChange={handleInputChange}
                     className="w-full pl-10 pr-4 py-3 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-gray-800 placeholder-gray-400"
-                    placeholder="+1 234 567 8900"
+                    placeholder="9876543210"
+                    maxLength="10"
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -132,11 +269,13 @@ const Register = ({ onSwitchToLogin }) => {
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-gray-800 placeholder-gray-400 pr-12"
                     placeholder="••••••••"
+                    disabled={loading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    disabled={loading}
                   >
                     {showPassword ? (
                       <EyeOff className="w-4 h-4" />
@@ -160,11 +299,13 @@ const Register = ({ onSwitchToLogin }) => {
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-gray-800 placeholder-gray-400 pr-12"
                     placeholder="••••••••"
+                    disabled={loading}
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    disabled={loading}
                   >
                     {showConfirmPassword ? (
                       <EyeOff className="w-4 h-4" />
@@ -181,17 +322,25 @@ const Register = ({ onSwitchToLogin }) => {
                   type="checkbox"
                   id="terms"
                   className="mt-1 w-4 h-4 text-blue-600 bg-gray-50 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                  required
+                  disabled={loading}
                 />
                 <label
                   htmlFor="terms"
                   className="text-xs text-gray-600 leading-relaxed"
                 >
                   I agree to the{" "}
-                  <button className="text-blue-600 hover:text-blue-700 font-medium">
+                  <button
+                    type="button"
+                    className="text-blue-600 hover:text-blue-700 font-medium"
+                  >
                     Terms & Conditions
                   </button>{" "}
                   and{" "}
-                  <button className="text-blue-600 hover:text-blue-700 font-medium">
+                  <button
+                    type="button"
+                    className="text-blue-600 hover:text-blue-700 font-medium"
+                  >
                     Privacy Policy
                   </button>
                 </label>
@@ -199,11 +348,40 @@ const Register = ({ onSwitchToLogin }) => {
 
               {/* Register Button */}
               <button
-                onClick={handleSubmit}
-                className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95 flex items-center justify-center space-x-2"
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span>Create Account</span>
-                <ArrowRight className="w-4 h-4" />
+                {loading ? (
+                  <>
+                    <svg
+                      className="animate-spin h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    <span>Creating Account...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Create Account</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
 
               {/* Divider */}
@@ -220,7 +398,10 @@ const Register = ({ onSwitchToLogin }) => {
 
               {/* Social Register */}
               <div className="grid grid-cols-2 gap-3">
-                <button className="flex items-center justify-center py-2.5 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors active:scale-95">
+                <button
+                  type="button"
+                  className="flex items-center justify-center py-2.5 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors active:scale-95"
+                >
                   <svg className="w-5 h-5" viewBox="0 0 24 24">
                     <path
                       fill="#4285F4"
@@ -241,13 +422,16 @@ const Register = ({ onSwitchToLogin }) => {
                   </svg>
                 </button>
 
-                <button className="flex items-center justify-center py-2.5 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors active:scale-95">
+                <button
+                  type="button"
+                  className="flex items-center justify-center py-2.5 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors active:scale-95"
+                >
                   <svg className="w-5 h-5" fill="#1877F2" viewBox="0 0 24 24">
                     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                   </svg>
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
 
