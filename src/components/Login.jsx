@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import busImage from '/Users/anamikaverma/SmartYatra-Frontend/src/assets/bus.jpg';
+import busImage from '../assets/bus.jpg';
 
 
 const Login = ({ onLogin }) => {
