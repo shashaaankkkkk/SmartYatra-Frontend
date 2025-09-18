@@ -278,10 +278,7 @@ const Help = () => {
         </button>
       </div>
 
-      {/* Bottom Navigation */}
       
-
-      {/* Footer */}
       
     </div>
   );

@@ -16,6 +16,7 @@ import Help from "./pages/Help";
 export default function App() {
   return (
     <Router>
+      <Navbar/>
       <Routes>
         {/* Default redirect to login */}
         <Route path="/" element={<Navigate to="/login" replace />} />
@@ -29,7 +30,7 @@ export default function App() {
         <Route path="/Setting" element={<Setting />} />
         <Route path="/Help" element={<Help />} />
       </Routes>
-      </Navbar>
+      
     </Router>
   );
 }
