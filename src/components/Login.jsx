@@ -17,7 +17,7 @@ const Login = ({ onSwitchToRegister }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log("Login attempt:", formData);
+    console.log("Login attempt: ", formData);
   };
 
   return (
