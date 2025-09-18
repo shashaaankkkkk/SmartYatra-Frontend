@@ -16,7 +16,6 @@ import Help from "./pages/Help";
 export default function App() {
   return (
     <Router>
-      
       <Routes>
         {/* Default redirect to login */}
         <Route path="/" element={<Navigate to="/login" replace />} />
@@ -27,12 +26,10 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/chatbot" element={<BusChatbot />} />
         <Route path="/Bus" element={<Bus />} />
-        <Route path="/Setting" element={<Setting/>} />
-        <Route path="/Help" element={<Help/>} />
-        
+        <Route path="/Setting" element={<Setting />} />
+        <Route path="/Help" element={<Help />} />
       </Routes>
-      <Navbar/>
-      
+      </Navbar>
     </Router>
   );
 }

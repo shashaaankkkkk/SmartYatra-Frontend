@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Eye, EyeOff, Bus, ArrowRight, MapPin, Route } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const Login = ({ onSwitchToRegister, onLoginSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -10,6 +11,7 @@ const Login = ({ onSwitchToRegister, onLoginSuccess }) => {
     password: "",
   });
 
+  const navigate = useNavigate();
   const handleInputChange = (e) => {
     setFormData({
       ...formData,
@@ -73,8 +75,15 @@ const Login = ({ onSwitchToRegister, onLoginSuccess }) => {
 
         // Call success callback if provided
         if (onLoginSuccess) {
-          onLoginSuccess(data);
+          try {
+            onLoginSuccess(data);
+          } catch (cbErr) {
+            console.warn("onLoginSuccess threw:", cbErr);
+          }
         }
+
+        // Redirect to dashboard (replace history so back button doesn't return to login)
+        navigate("/dashboard", { replace: true });
       } else {
         // Handle error responses
         if (response.status === 401) {
