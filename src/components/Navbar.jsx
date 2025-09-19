@@ -1,36 +1,39 @@
 import { Link, useLocation } from "react-router-dom";
-import { FaBus, FaTicketAlt, FaQuestionCircle } from "react-icons/fa";
-import { MdHub, MdOutlineAltRoute } from "react-icons/md";
+import { FaBus, FaUser, FaTicketAlt, FaQuestionCircle } from "react-icons/fa";
+import { MdOutlineAltRoute } from "react-icons/md";
+import { TbMessageChatbot } from "react-icons/tb";
 
 function Navbar() {
-  const location = useLocation(); // gives current path
+  const location = useLocation();
 
   const navItems = [
-    { to: "/", icon: <FaBus size={22} />, label: "Bus" },
+    { to: "/bus", icon: <FaBus size={22} />, label: "Bus" },
     { to: "/tickets", icon: <FaTicketAlt size={22} />, label: "Tickets" },
-    { to: "/hub", icon: <MdHub size={22} />, label: "Hub" },
-    { to: "/trip", icon: <MdOutlineAltRoute size={22} />, label: "Trip Plan" },
+    { to: "/hub", icon: <TbMessageChatbot size={22} />, label: "Chatbot" },
+    { to: "/dashboard", icon: <FaUser size={22} />, label: "Dashboard" },
     { to: "/help", icon: <FaQuestionCircle size={22} />, label: "Help" },
   ];
 
   return (
-    <div className="fixed bottom-0 w-full bg-blue-600 text-white flex justify-around py-3">
+    <nav className="fixed bottom-0 w-full bg-blue-600 text-white flex justify-around py-3 z-50">
       {navItems.map((item) => {
         const isActive = location.pathname === item.to;
         return (
           <Link
             key={item.to}
             to={item.to}
-            className={`flex flex-col items-center ${
-              isActive ? "text-cyan-300 font-semibold opacity-50 scale-120   " : "text-white"
+            className={`flex flex-col items-center transition-all duration-200 ${
+              isActive
+                ? "text-cyan-300 font-semibold transform scale-110"
+                : "text-white hover:text-cyan-100"
             }`}
           >
             {item.icon}
-            <span className="text-sm">{item.label}</span>
+            <span className="text-sm mt-1">{item.label}</span>
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 }
 
