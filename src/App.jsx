@@ -1,3 +1,4 @@
+import React from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -6,31 +7,66 @@ import {
 } from "react-router-dom";
 import Login from "./components/Login";
 import Register from "./components/Register";
+import AuthenticatedLayout from "./route/route";
 import Dashboard from "./components/Dashboard";
-import BusChatbot from "./components/Chatbot.jsx";
+import BusChatbot from "./components/Chatbot";
 import Bus from "./pages/Bus";
-import Navbar from "./components/navbar";
+import Ticket from "./components/Ticket";
 import Setting from "./pages/Setting";
 import Help from "./pages/Help";
+
+/**
+ * isAuthenticated()
+ * Simple check for presence of token
+ */
+function isAuthenticated() {
+  return !!(
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("token") ||
+    sessionStorage.getItem("access_token")
+  );
+}
+
+/**
+ * ProtectedRoute
+ * Redirects to login if not authenticated
+ */
+function ProtectedRoute({ children }) {
+  if (!isAuthenticated()) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+}
 
 export default function App() {
   return (
     <Router>
-      <Navbar/>
       <Routes>
-        {/* Default redirect to login */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-
-        {/* Auth screens */}
+        {/* Public routes - no navbar */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/chatbot" element={<BusChatbot />} />
-        <Route path="/Bus" element={<Bus />} />
-        <Route path="/Setting" element={<Setting />} />
-        <Route path="/Help" element={<Help />} />
+
+        {/* Protected routes - with navbar layout */}
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <AuthenticatedLayout />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Default redirect */}
+        <Route
+          path="/"
+          element={
+            <Navigate
+              to={isAuthenticated() ? "/dashboard" : "/login"}
+              replace
+            />
+          }
+        />
       </Routes>
-      
     </Router>
   );
 }
